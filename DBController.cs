@@ -1,59 +1,58 @@
 ﻿using System;
-using Microsoft.Data.SqlClient;
-using LabsAndProjsManagerServer.Objects;
-using System;
+using System.Data.SqlClient;
+using StudentStatusTrackerServer.Objects;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 
 namespace LabsAndProjsManagerServer.DbAccess
 {
-    public class DatabaseController
+    public class DBController
     {
 
-        //For Alex : here you need to enter your connection string to make it work with your DB
-        private readonly string CON_STRING = @"Data Source=DESKTOP-951MJR7;Initial Catalog=WebCourse;Integrated Security=True";
-        private SqlConnection con;
+        //Execution Instructions : here you need to enter your connection string to make it work with your DB
+        private readonly string CONNECTIOM_STRING = @"Data Source=DESKTOP-951MJR7;Initial Catalog=WebCourse;Integrated Security=True";
+        private SqlConnection sqlConnection;
 
-        private bool _isConnected;
-        public bool IsConnected
+        private bool isConnected;
+        public bool Connected
         {
-            get => _isConnected;
+            get => isConnected;
         }
 
-        public DatabaseController()
+        public DBController()
         {
             try
             {
-                SqlDependency.Start(CON_STRING);
-                con = new SqlConnection(CON_STRING);
-                _isConnected = true;
+                SqlDependency.Start(CONNECTIOM_STRING);
+                sqlConnection = new SqlConnection(CONNECTIOM_STRING);
+                isConnected = true;
 
             }
             catch (Exception)
             {
-                _isConnected = false;
+                isConnected = false;
             }
         }
 
-        public StudentModel Login(string id)
+        public StudentObject SignIn(string studentId)
         {
-            StudentModel student = new StudentModel();
-            using (var cmd = new SqlCommand($"select * from Students where ID={id}", con))
+            StudentObject student = new StudentObject();
+            using (var cmd = new SqlCommand($"select * from Students where ID={studentId}", sqlConnection))
             {
-                var da = new SqlDataAdapter(cmd);
-                var dependency = new SqlDependency(cmd);
-                dependency.OnChange += new OnChangeEventHandler(dependency_OnChange);
-                var ds = new DataSet();
+                var dataAdapter = new SqlDataAdapter(cmd);
+                var sqlDependency = new SqlDependency(cmd);
+                sqlDependency.OnChange += new OnChangeEventHandler(dependency_OnChange);
+                var dataSet = new DataSet();
 
                 try
                 {
-                    da.Fill(ds);
-                    student = new StudentModel
+                    dataAdapter.Fill(dataSet);
+                    student = new StudentObject
                     {
-                        ID = ds.Tables[0].Rows[0][0].ToString(),
-                        FirstName = ds.Tables[0].Rows[0][1].ToString(),
-                        LastName = ds.Tables[0].Rows[0][2].ToString(),
+                        StudentID = dataSet.Tables[0].Rows[0][0].ToString(),
+                        StudentFirstName = dataSet.Tables[0].Rows[0][1].ToString(),
+                        StudentLastName = dataSet.Tables[0].Rows[0][2].ToString(),
                     };
                 }
                 catch
@@ -66,63 +65,63 @@ namespace LabsAndProjsManagerServer.DbAccess
 
         public string GetCourseName(int CourseID)
         {
-            string name = "";
+            string Coursename = "";
 
-            using (var cmd = new SqlCommand($"select Name from Courses where ID={CourseID}", con))
+            using (var cmd = new SqlCommand($"select Name from Courses where ID={CourseID}", sqlConnection))
             {
-                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                SqlDataAdapter dataAdapter = new SqlDataAdapter(cmd);
                 var dependency = new SqlDependency(cmd);
                 dependency.OnChange += new OnChangeEventHandler(dependency_OnChange);
-                DataSet ds = new DataSet();
-                da.Fill(ds);
+                DataSet dataSet = new DataSet();
+                dataAdapter.Fill(dataSet);
                 try
                 {
-                    name = ds.Tables[0].Rows[0][0].ToString();
+                    Coursename = dataSet.Tables[0].Rows[0][0].ToString();
                 }
                 catch
                 {
                     return null;
                 }
             }
-            return name;
+            return Coursename;
         }
 
-        public List<CourseModel> GetStudentCourses(StudentModel student)
+        public List<CourseObject> GetStudentCourses(StudentObject student)
         {
-            List<CourseModel> studentCourses = new List<CourseModel>();
+            List<CourseObject> studentCourses = new List<CourseObject>();
             int CourseId;
 
-            using (var cmd = new SqlCommand($"select CourseID,SubmissionType,SubmissionIndex,Score from Submissions where StudentID={student.ID}", con))
+            using (var cmd = new SqlCommand($"select CourseID,SubmissionType,SubmissionIndex,Score from Submissions where StudentID={student.StudentID}", sqlConnection))
             {
-                SqlDataAdapter da = new SqlDataAdapter(cmd);
-                var dependency = new SqlDependency(cmd);
-                dependency.OnChange += new OnChangeEventHandler(dependency_OnChange);
-                DataSet ds = new DataSet();
-                da.Fill(ds);
+                SqlDataAdapter dataAdapter = new SqlDataAdapter(cmd);
+                var sqlDependency = new SqlDependency(cmd);
+                sqlDependency.OnChange += new OnChangeEventHandler(dependency_OnChange);
+                DataSet dataSet = new DataSet();
+                dataAdapter.Fill(dataSet);
                 try
                 {
-                    for (int i = 0; i < ds.Tables[0].Rows.Count; i++)
+                    for (int i = 0; i < dataSet.Tables[0].Rows.Count; i++)
                     {
-                        CourseId = int.Parse(ds.Tables[0].Rows[i][0].ToString());
-                        if (!studentCourses.Any(x => x.ID == CourseId))
+                        CourseId = int.Parse(dataSet.Tables[0].Rows[i][0].ToString());
+                        if (!studentCourses.Any(x => x.CourseID == CourseId))
                         {
-                            var course = new CourseModel()
+                            var course = new CourseObject()
                             {
-                                Name = GetCourseName(CourseId),
-                                ID = CourseId,
+                                CourseName = GetCourseName(CourseId),
+                                CourseID = CourseId,
                             };
                             studentCourses.Add(course);
                         }
 
-                        var submission = new Submission(ds.Tables[0].Rows[i][1].ToString(), int.Parse(ds.Tables[0].Rows[i][3].ToString()), int.Parse(ds.Tables[0].Rows[i][2].ToString()));
+                        var submit = new SubmitObject(dataSet.Tables[0].Rows[i][1].ToString(), int.Parse(dataSet.Tables[0].Rows[i][3].ToString()), int.Parse(dataSet.Tables[0].Rows[i][2].ToString()));
 
-                        if (submission.TypeOfSubmission == "Lab")
+                        if (submit.SubmitType == "Lab")
                         {
-                            studentCourses.First(x => x.ID == CourseId).Labs.Add(submission);
+                            studentCourses.First(currentCourse => currentCourse.CourseID == CourseId).Laboratories.Add(submit);
                         }
                         else
                         {
-                            studentCourses.First(x => x.ID == CourseId).Projects.Add(submission);
+                            studentCourses.First(currentCourse => currentCourse.CourseID == CourseId).Exercises.Add(submit);
                         }
                     }
 
@@ -135,29 +134,29 @@ namespace LabsAndProjsManagerServer.DbAccess
             return studentCourses;
         }
 
-        public StudentModel Register(string id, string firstName, string lastName)
+        public StudentObject SignUp(string studentId, string studentFirstName, string studentLastName)
         {
-            using (var cmd = new SqlCommand($"insert into Students (ID, FirstName, LastName) values ('{id}', '{firstName}', '{lastName}')", con))
+            using (var command = new SqlCommand($"insert into Students (ID, FirstName, LastName) values ('{studentId}', '{studentFirstName}', '{studentLastName}')", sqlConnection))
             {
-                if (cmd.Connection.State != ConnectionState.Open)
-                    cmd.Connection.Open();
+                if (command.Connection.State != ConnectionState.Open)
+                    command.Connection.Open();
                 try
                 {
-                    cmd.ExecuteNonQuery();
+                    command.ExecuteNonQuery();
                 }
                 catch (SqlException ex)
                 {
                     return null;
                 }
             }
-            return new StudentModel() { ID = id, FirstName = firstName, LastName = lastName, StudentCourses = new List<CourseModel>() };
+            return new StudentObject() { StudentID = studentId, StudentFirstName = studentFirstName, StudentLastName = studentLastName, StudentCoursesList = new List<CourseObject>() };
         }
 
-        private void dependency_OnChange(object sender, SqlNotificationEventArgs e)
+        private void dependency_OnChange(object sender, SqlNotificationEventArgs sqlEvent)
         {
-            if (e.Type == SqlNotificationType.Change)
+            if (sqlEvent.Type == SqlNotificationType.Change)
             {
-
+                Console.Write(sqlEvent.Type.ToString());
             }
         }
     }
